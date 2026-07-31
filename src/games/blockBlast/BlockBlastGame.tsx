@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BOARD_SIZE,
-  OBSTACLE,
-  addObstacles,
   canPlace,
   clearLines,
   createEmptyBoard,
   findFullLines,
   hasAnyValidMove,
-  obstacleCountForStage,
   placePiece,
   scoreForMove,
-  stageForLines,
   type Board,
 } from "./boardLogic";
 import { randomPiece, shapeBounds, type Piece } from "./shapes";
@@ -23,7 +19,6 @@ import {
   playGameStartSfx,
   playLineClearSfx,
   playNewRecordSfx,
-  playObstacleWarnSfx,
   playPlaceSfx,
   startBlockBlastMusic,
   stopBlockBlastMusic,
@@ -63,9 +58,6 @@ export default function BlockBlastGame({
   const [gameOver, setGameOver] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [clearingFlash, setClearingFlash] = useState<{ rows: number[]; cols: number[] } | null>(null);
-  const [totalLinesCleared, setTotalLinesCleared] = useState(0);
-  const [stage, setStage] = useState(1);
-  const [stageBanner, setStageBanner] = useState<number | null>(null);
   const [muted, setMutedState] = useState(() => isMuted());
 
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -158,19 +150,6 @@ export default function BlockBlastGame({
     const gained = scoreForMove(piece.shape.cells.length, totalLines);
     if (totalLines > 0) playLineClearSfx(totalLines);
 
-    // 스테이지 진행: 누적 라인 클리어 수에 따라 스테이지가 오르면 방해블록 등장 (개수는 항상 동일, 난이도 차등 없음)
-    const newTotalLines = totalLinesCleared + totalLines;
-    const newStage = stageForLines(newTotalLines);
-    if (newStage > stage) {
-      const spawn = obstacleCountForStage(newStage);
-      nextBoard = addObstacles(nextBoard, spawn).board;
-      setStage(newStage);
-      setStageBanner(newStage);
-      playObstacleWarnSfx();
-      window.setTimeout(() => setStageBanner(null), 1400);
-    }
-    setTotalLinesCleared(newTotalLines);
-
     let nextTray: Tray = [...tray] as Tray;
     nextTray[trayIndex] = null;
     if (nextTray.every((p) => p === null)) nextTray = freshTray();
@@ -204,9 +183,6 @@ export default function BlockBlastGame({
     setScore(0);
     setGameOver(false);
     setDrag(null);
-    setTotalLinesCleared(0);
-    setStage(1);
-    setStageBanner(null);
     startBlockBlastMusic();
   };
 
@@ -229,7 +205,6 @@ export default function BlockBlastGame({
           <button className="bb-mute-btn" onClick={handleMuteToggle} aria-label="소리 켜기/끄기">
             {muted ? "🔇" : "🔊"}
           </button>
-          <div className="bb-stage-badge">STAGE {stage}</div>
         </div>
       </div>
 
@@ -247,18 +222,16 @@ export default function BlockBlastGame({
               const isFlashing =
                 clearingFlash != null &&
                 (clearingFlash.rows.includes(r) || clearingFlash.cols.includes(c));
-              const isObstacle = cell === OBSTACLE;
               return (
                 <div
                   key={key}
                   className={
                     "bb-cell" +
                     (cell ? " bb-cell-filled" : "") +
-                    (isObstacle ? " bb-cell-obstacle" : "") +
                     (isPreview ? (drag?.valid ? " bb-cell-preview-ok" : " bb-cell-preview-bad") : "") +
                     (isFlashing ? " bb-cell-flash" : "")
                   }
-                  style={cell && !isObstacle ? { background: cell } : undefined}
+                  style={cell ? { background: cell } : undefined}
                 />
               );
             })
@@ -281,13 +254,6 @@ export default function BlockBlastGame({
           ))}
         </div>
       </div>
-
-      {stageBanner != null && (
-        <div className="bb-stage-toast">
-          <p className="bb-stage-toast-title">STAGE {stageBanner}</p>
-          <p className="bb-stage-toast-sub">⚠ 방해 블록 등장!</p>
-        </div>
-      )}
 
       {drag && (
         <div

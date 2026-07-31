@@ -50,17 +50,6 @@
   border-color: var(--neon-green);
 }
 
-.bb-stage-badge {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--neon-violet);
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.4px;
-  padding: 8px 14px;
-  border-radius: 999px;
-}
-
 .bb-hero-score {
   display: flex;
   flex-direction: column;
@@ -133,61 +122,6 @@
 .bb-cell-flash {
   background: #ffffff !important;
   transform: scale(0.92);
-}
-
-.bb-cell-obstacle {
-  background: repeating-linear-gradient(
-    135deg,
-    #4a4038,
-    #4a4038 6px,
-    #3a322c 6px,
-    #3a322c 12px
-  );
-  box-shadow: inset 0 0 0 1px rgba(245, 182, 66, 0.45);
-}
-
-@keyframes bb-stage-toast-in {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.7);
-  }
-  15% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  80% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.05);
-  }
-}
-
-.bb-stage-toast {
-  position: fixed;
-  top: 40%;
-  left: 50%;
-  z-index: 250;
-  text-align: center;
-  pointer-events: none;
-  animation: bb-stage-toast-in 1.4s ease forwards;
-}
-
-.bb-stage-toast-title {
-  margin: 0;
-  font-size: 40px;
-  font-weight: 900;
-  color: var(--neon-violet);
-  text-shadow: 0 0 26px rgba(142, 68, 173, 0.7);
-}
-
-.bb-stage-toast-sub {
-  margin: 6px 0 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--neon-amber);
 }
 
 .bb-tray {

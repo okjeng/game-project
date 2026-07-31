@@ -66,16 +66,6 @@ export function playLineClearSfx(linesCleared: number): void {
   }
 }
 
-export function playObstacleWarnSfx(): void {
-  playSequence(
-    [
-      { freq: 220.0, duration: 0.08, type: "sawtooth", volume: 0.28 },
-      { freq: 220.0, duration: 0.08, type: "sawtooth", volume: 0.28 },
-    ],
-    0.06
-  );
-}
-
 export function playGameOverSfx(): void {
   playSequence(
     [

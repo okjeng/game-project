@@ -2,10 +2,7 @@ import type { Piece } from "./shapes";
 
 export const BOARD_SIZE = 8;
 
-/** 스테이지가 올라갈 때 자동으로 채워지는 방해 블록 표시값 (색이 아니라 이 상수로 구분) */
-export const OBSTACLE = "OBSTACLE";
-
-export type BoardCell = string | null; // null = 빈 칸, OBSTACLE = 방해블록, 그 외 문자열 = 색(CSS 값)
+export type BoardCell = string | null; // null = 빈 칸, 그 외 문자열 = 색(CSS 값)
 export type Board = BoardCell[][];
 
 export function createEmptyBoard(): Board {
@@ -68,46 +65,4 @@ export function scoreForMove(cellsPlaced: number, linesCleared: number): number 
   const lineScore = linesCleared * BOARD_SIZE * 10;
   const comboBonus = linesCleared > 1 ? linesCleared * 50 : 0;
   return cellsPlaced + lineScore + comboBonus;
-}
-
-// ─── 스테이지 / 방해 블록 ────────────────────────────────────────────
-// 라인을 일정 개수 지울 때마다 스테이지가 올라가고, 그때마다 빈 칸 일부가
-// 자동으로 방해 블록(OBSTACLE)으로 채워진다. 없애는 방법은 똑같이
-// 그 칸이 속한 가로/세로 줄을 완성해서 클리어하는 것 — 별도 조작 없음.
-export const LINES_PER_STAGE = 3;
-
-export function stageForLines(totalLinesCleared: number): number {
-  return 1 + Math.floor(totalLinesCleared / LINES_PER_STAGE);
-}
-
-/** 스테이지마다 난이도 차등 없이 항상 같은 개수만 등장한다 */
-export function obstacleCountForStage(_stage: number): number {
-  return 3;
-}
-
-/** 줄을 즉시 완성시키지 않는 빈 칸만 골라 방해 블록을 놓는다 */
-export function addObstacles(board: Board, count: number): { board: Board; placed: number } {
-  const empties: [number, number][] = [];
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r][c] === null) empties.push([r, c]);
-    }
-  }
-  for (let i = empties.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [empties[i], empties[j]] = [empties[j], empties[i]];
-  }
-
-  let next = board.map((row) => row.slice());
-  let placed = 0;
-  for (const [r, c] of empties) {
-    if (placed >= count) break;
-    const candidate = next.map((row) => row.slice());
-    candidate[r][c] = OBSTACLE;
-    const { rows, cols } = findFullLines(candidate);
-    if (rows.length > 0 || cols.length > 0) continue; // 즉시 클리어되는 칸은 방해블록 자리로 부적합
-    next = candidate;
-    placed += 1;
-  }
-  return { board: next, placed };
 }
