@@ -6,6 +6,8 @@ import FamilyLeaderboard from "./components/FamilyLeaderboard";
 import NameModal from "./components/NameModal";
 import BlockBlastGame from "./games/blockBlast/BlockBlastGame";
 import GateShooterGame from "./games/gateShooter/GateShooterGame";
+import RhythmGame from "./games/rhythmGame/RhythmGame";
+import BubblePopGame from "./games/bubblePop/BubblePopGame";
 import { GAMES } from "./data/games";
 import {
   fetchFamilyRanking,
@@ -73,6 +75,12 @@ function App() {
     }
     if (view.gameId === "gate-shooter") {
       return <GateShooterGame playerName={playerName} onExit={exitGame} />;
+    }
+    if (view.gameId === "rhythm-game") {
+      return <RhythmGame playerName={playerName} onExit={exitGame} />;
+    }
+    if (view.gameId === "bubble-pop") {
+      return <BubblePopGame playerName={playerName} onExit={exitGame} />;
     }
   }
 

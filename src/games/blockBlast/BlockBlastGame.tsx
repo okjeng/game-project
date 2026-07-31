@@ -61,6 +61,8 @@ export default function BlockBlastGame({
   const [muted, setMutedState] = useState(() => isMuted());
 
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const dragRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     initBlockBlastAudio();
@@ -68,6 +70,7 @@ export default function BlockBlastGame({
     startBlockBlastMusic();
     return () => {
       stopBlockBlastMusic();
+      if (dragRafRef.current != null) cancelAnimationFrame(dragRafRef.current);
     };
   }, []);
 
@@ -104,13 +107,23 @@ export default function BlockBlastGame({
     return { row: anchorRow, col: anchorCol };
   }, []);
 
+  const flushDrag = () => {
+    dragRafRef.current = null;
+    setDrag(dragRef.current);
+  };
+
+  const scheduleDragFlush = () => {
+    if (dragRafRef.current != null) return;
+    dragRafRef.current = requestAnimationFrame(flushDrag);
+  };
+
   const handlePointerDown = (index: number) => (e: React.PointerEvent) => {
     if (gameOver) return;
     const piece = tray[index];
     if (!piece) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const { row, col } = computeAnchor(piece, e.clientX, e.clientY);
-    setDrag({
+    const next: DragState = {
       trayIndex: index,
       piece,
       pointerId: e.pointerId,
@@ -119,25 +132,38 @@ export default function BlockBlastGame({
       anchorRow: row,
       anchorCol: col,
       valid: canPlace(board, piece, row, col),
-    });
+    };
+    dragRef.current = next;
+    setDrag(next);
   };
 
+  // 포인터 이동은 화면 주사율보다 훨씬 빠르게(특히 터치) 들어올 수 있어서,
+  // 매번 setState로 보드 64칸을 다시 그리면 순간순간 끊기는 느낌이 난다.
+  // 최신 위치는 ref에만 쌓아두고, 실제 렌더는 requestAnimationFrame으로 프레임당 1번만 반영한다.
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    const { row, col } = computeAnchor(drag.piece, e.clientX, e.clientY);
-    setDrag({
-      ...drag,
+    const current = dragRef.current;
+    if (!current || e.pointerId !== current.pointerId) return;
+    const { row, col } = computeAnchor(current.piece, e.clientX, e.clientY);
+    dragRef.current = {
+      ...current,
       x: e.clientX,
       y: e.clientY,
       anchorRow: row,
       anchorCol: col,
-      valid: canPlace(board, drag.piece, row, col),
-    });
+      valid: canPlace(board, current.piece, row, col),
+    };
+    scheduleDragFlush();
   };
 
   const finishDrag = (e: React.PointerEvent) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    const { piece, trayIndex, anchorRow, anchorCol, valid } = drag;
+    const current = dragRef.current;
+    if (!current || e.pointerId !== current.pointerId) return;
+    const { piece, trayIndex, anchorRow, anchorCol, valid } = current;
+    if (dragRafRef.current != null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    dragRef.current = null;
     setDrag(null);
     if (!valid) return;
 
@@ -182,6 +208,7 @@ export default function BlockBlastGame({
     setTray(freshTray());
     setScore(0);
     setGameOver(false);
+    dragRef.current = null;
     setDrag(null);
     startBlockBlastMusic();
   };

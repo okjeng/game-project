@@ -34,6 +34,12 @@ export function unlockAudio(): void {
   if (c.state === "suspended") void c.resume();
 }
 
+/** 오디오 하드웨어 기준 시각(초) — 리듬게임처럼 소리와 화면을 정확히 맞춰야 할 때
+ *  performance.now() 대신 이 시계를 기준으로 삼아야 밀리지 않는다 */
+export function audioNow(): number {
+  return ensureCtx().currentTime;
+}
+
 export function isMuted(): boolean {
   return localStorage.getItem(MUTE_KEY) === "1";
 }

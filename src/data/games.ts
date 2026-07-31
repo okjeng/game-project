@@ -29,6 +29,24 @@ export const GAMES: GameMeta[] = [
     color: "var(--neon-violet)",
     status: "active",
   },
+  {
+    id: "rhythm-game",
+    name: "BEAT MATCH",
+    emoji: "🎵",
+    tagline: "내려오는 노트를 박자에 맞춰 눌러보세요!",
+    category: "캐주얼",
+    color: "var(--neon-cyan)",
+    status: "active",
+  },
+  {
+    id: "bubble-pop",
+    name: "방울팡!",
+    emoji: "🫧",
+    tagline: "거품으로 몬스터를 가두고 톡! 터뜨리세요!",
+    category: "아케이드",
+    color: "var(--neon-amber)",
+    status: "active",
+  },
 ];
 
 export const COMING_SOON_COUNT = 1;
