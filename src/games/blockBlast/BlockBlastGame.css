@@ -27,6 +27,29 @@
   color: var(--text);
 }
 
+.bb-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bb-mute-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bb-mute-btn:hover {
+  border-color: var(--neon-green);
+}
+
 .bb-stage-badge {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -180,10 +203,10 @@
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
+  cursor: grab;
 }
 
 .bb-piece {
-  cursor: grab;
   padding: 4px;
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BOARD_SIZE,
   OBSTACLE,
@@ -16,6 +16,18 @@ import {
 } from "./boardLogic";
 import { randomPiece, shapeBounds, type Piece } from "./shapes";
 import { getMyBestScore, recordScore } from "../../lib/storage";
+import { isMuted, toggleMuted } from "../../lib/sound";
+import {
+  initBlockBlastAudio,
+  playGameOverSfx,
+  playGameStartSfx,
+  playLineClearSfx,
+  playNewRecordSfx,
+  playObstacleWarnSfx,
+  playPlaceSfx,
+  startBlockBlastMusic,
+  stopBlockBlastMusic,
+} from "./sfx";
 import "./BlockBlastGame.css";
 
 const DRAG_LIFT_PX = 64;
@@ -54,8 +66,23 @@ export default function BlockBlastGame({
   const [totalLinesCleared, setTotalLinesCleared] = useState(0);
   const [stage, setStage] = useState(1);
   const [stageBanner, setStageBanner] = useState<number | null>(null);
+  const [muted, setMutedState] = useState(() => isMuted());
 
   const boardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    initBlockBlastAudio();
+    playGameStartSfx();
+    startBlockBlastMusic();
+    return () => {
+      stopBlockBlastMusic();
+    };
+  }, []);
+
+  const handleMuteToggle = () => {
+    initBlockBlastAudio();
+    setMutedState(toggleMuted());
+  };
 
   const isNewRecord = gameOver && score > 0 && score >= best;
 
@@ -110,13 +137,16 @@ export default function BlockBlastGame({
     setDrag(null);
     if (!valid) return;
 
+    playPlaceSfx();
+
     const placed = placePiece(board, piece, anchorRow, anchorCol);
     const { rows, cols } = findFullLines(placed);
     const totalLines = rows.length + cols.length;
     let nextBoard = totalLines > 0 ? clearLines(placed, rows, cols) : placed;
     const gained = scoreForMove(piece.shape.cells.length, totalLines);
+    if (totalLines > 0) playLineClearSfx(totalLines);
 
-    // 스테이지 진행: 누적 라인 클리어 수에 따라 스테이지가 오르면 방해블록 등장
+    // 스테이지 진행: 누적 라인 클리어 수에 따라 스테이지가 오르면 방해블록 등장 (개수는 항상 동일, 난이도 차등 없음)
     const newTotalLines = totalLinesCleared + totalLines;
     const newStage = stageForLines(newTotalLines);
     if (newStage > stage) {
@@ -124,6 +154,7 @@ export default function BlockBlastGame({
       nextBoard = addObstacles(nextBoard, spawn).board;
       setStage(newStage);
       setStageBanner(newStage);
+      playObstacleWarnSfx();
       window.setTimeout(() => setStageBanner(null), 1400);
     }
     setTotalLinesCleared(newTotalLines);
@@ -137,7 +168,8 @@ export default function BlockBlastGame({
     setBoard(nextBoard);
     setTray(nextTray);
 
-    if (recordScore("block-blast", playerName, newScore)) {
+    const isRecord = recordScore("block-blast", playerName, newScore);
+    if (isRecord) {
       setBest(newScore);
     }
 
@@ -148,6 +180,9 @@ export default function BlockBlastGame({
 
     if (!hasAnyValidMove(nextBoard, nextTray)) {
       setGameOver(true);
+      stopBlockBlastMusic();
+      playGameOverSfx();
+      if (isRecord) window.setTimeout(playNewRecordSfx, 550);
     }
   };
 
@@ -160,6 +195,7 @@ export default function BlockBlastGame({
     setTotalLinesCleared(0);
     setStage(1);
     setStageBanner(null);
+    startBlockBlastMusic();
   };
 
   const previewCells = useMemo(() => {
@@ -177,7 +213,12 @@ export default function BlockBlastGame({
         <button className="bb-back" onClick={onExit}>
           ← 나가기
         </button>
-        <div className="bb-stage-badge">STAGE {stage}</div>
+        <div className="bb-topbar-right">
+          <button className="bb-mute-btn" onClick={handleMuteToggle} aria-label="소리 켜기/끄기">
+            {muted ? "🔇" : "🔊"}
+          </button>
+          <div className="bb-stage-badge">STAGE {stage}</div>
+        </div>
       </div>
 
       <div className="bb-hero-score">
@@ -214,17 +255,16 @@ export default function BlockBlastGame({
 
         <div className="bb-tray">
           {tray.map((piece, i) => (
-            <div key={piece?.uid ?? `empty-${i}`} className="bb-tray-slot">
-              {piece && (
-                <PieceView
-                  piece={piece}
-                  dimmed={drag?.trayIndex === i}
-                  onPointerDown={handlePointerDown(i)}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={finishDrag}
-                  onPointerCancel={finishDrag}
-                />
-              )}
+            <div
+              key={piece?.uid ?? `empty-${i}`}
+              className="bb-tray-slot"
+              style={{ touchAction: "none" }}
+              onPointerDown={piece ? handlePointerDown(i) : undefined}
+              onPointerMove={piece ? handlePointerMove : undefined}
+              onPointerUp={piece ? finishDrag : undefined}
+              onPointerCancel={piece ? finishDrag : undefined}
+            >
+              {piece && <PieceView piece={piece} dimmed={drag?.trayIndex === i} />}
             </div>
           ))}
         </div>
@@ -306,30 +346,9 @@ function PieceShape({
   );
 }
 
-function PieceView({
-  piece,
-  dimmed,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-}: {
-  piece: Piece;
-  dimmed: boolean;
-  onPointerDown: (e: React.PointerEvent) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: (e: React.PointerEvent) => void;
-  onPointerCancel: (e: React.PointerEvent) => void;
-}) {
+function PieceView({ piece, dimmed }: { piece: Piece; dimmed: boolean }) {
   return (
-    <div
-      className={"bb-piece" + (dimmed ? " bb-piece-dragging" : "")}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      style={{ touchAction: "none" }}
-    >
+    <div className={"bb-piece" + (dimmed ? " bb-piece-dragging" : "")}>
       <PieceShape shape={piece.shape} color={piece.color} cellSize={20} gap={2} />
     </div>
   );

@@ -80,8 +80,9 @@ export function stageForLines(totalLinesCleared: number): number {
   return 1 + Math.floor(totalLinesCleared / LINES_PER_STAGE);
 }
 
-export function obstacleCountForStage(stage: number): number {
-  return Math.min(2 + stage, 10);
+/** 스테이지마다 난이도 차등 없이 항상 같은 개수만 등장한다 */
+export function obstacleCountForStage(_stage: number): number {
+  return 3;
 }
 
 /** 줄을 즉시 완성시키지 않는 빈 칸만 골라 방해 블록을 놓는다 */
