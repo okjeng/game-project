@@ -5,6 +5,7 @@ import GameGrid from "./components/GameGrid";
 import FamilyLeaderboard from "./components/FamilyLeaderboard";
 import NameModal from "./components/NameModal";
 import BlockBlastGame from "./games/blockBlast/BlockBlastGame";
+import GateShooterGame from "./games/gateShooter/GateShooterGame";
 import { GAMES } from "./data/games";
 import { getFamilyRanking, getMyBestScore, getPlayerName, setPlayerName } from "./lib/storage";
 
@@ -47,8 +48,13 @@ function App() {
     setView({ screen: "home" });
   };
 
-  if (view.screen === "game" && view.gameId === "block-blast" && playerName) {
-    return <BlockBlastGame playerName={playerName} onExit={exitGame} />;
+  if (view.screen === "game" && playerName) {
+    if (view.gameId === "block-blast") {
+      return <BlockBlastGame playerName={playerName} onExit={exitGame} />;
+    }
+    if (view.gameId === "gate-shooter") {
+      return <GateShooterGame playerName={playerName} onExit={exitGame} />;
+    }
   }
 
   return (

@@ -20,6 +20,15 @@ export const GAMES: GameMeta[] = [
     color: "var(--neon-green)",
     status: "active",
   },
+  {
+    id: "gate-shooter",
+    name: "GATE SHOOTER",
+    emoji: "🔫",
+    tagline: "게이트를 선택하고 몬스터를 물리쳐라!",
+    category: "아케이드",
+    color: "var(--neon-violet)",
+    status: "active",
+  },
 ];
 
-export const COMING_SOON_COUNT = 2;
+export const COMING_SOON_COUNT = 1;
