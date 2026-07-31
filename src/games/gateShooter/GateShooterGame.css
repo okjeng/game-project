@@ -67,7 +67,7 @@
 }
 
 .gs-hero-score-value {
-  font-size: clamp(36px, 9vw, 56px);
+  font-size: 44px;
   font-weight: 900;
   line-height: 1;
   color: var(--text);
@@ -80,10 +80,13 @@
   justify-content: center;
   margin-top: 14px;
   padding: 0 12px;
+  max-height: 80vh;
 }
 
 .gs-stage {
-  width: min(92vw, calc(80vh * 400 / 700), 440px);
+  /* 가로(vw) 기준 + 고정 최대값만 사용 — 세로(vh)를 섞으면 폰/태블릿마다
+     화면 비율이 달라 보드 크기가 들쭉날쭉해진다 */
+  width: min(90vw, 380px);
   aspect-ratio: 400 / 700;
   border-radius: var(--radius-md);
   overflow: hidden;

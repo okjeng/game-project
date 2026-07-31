@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
 import GameGrid from "./components/GameGrid";
@@ -7,7 +7,14 @@ import NameModal from "./components/NameModal";
 import BlockBlastGame from "./games/blockBlast/BlockBlastGame";
 import GateShooterGame from "./games/gateShooter/GateShooterGame";
 import { GAMES } from "./data/games";
-import { getFamilyRanking, getMyBestScore, getPlayerName, setPlayerName } from "./lib/storage";
+import {
+  fetchFamilyRanking,
+  getFamilyRanking,
+  getMyBestScore,
+  getPlayerName,
+  setPlayerName,
+  type RankingEntry,
+} from "./lib/storage";
 
 type View = { screen: "home" } | { screen: "game"; gameId: string };
 
@@ -17,10 +24,22 @@ function App() {
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [rankingVersion, setRankingVersion] = useState(0);
+  const [ranking, setRanking] = useState<RankingEntry[]>(() => getFamilyRanking("block-blast"));
 
   const blockBlast = GAMES.find((g) => g.id === "block-blast")!;
-  const bestScore = useMemo(() => getMyBestScore("block-blast"), [view, rankingVersion]);
-  const ranking = useMemo(() => getFamilyRanking("block-blast"), [view, rankingVersion]);
+  const bestScore = useMemo(() => getMyBestScore("block-blast"), [ranking]);
+
+  useEffect(() => {
+    if (view.screen !== "home") return;
+    setRanking(getFamilyRanking("block-blast")); // 로컬 캐시로 즉시 표시
+    let cancelled = false;
+    fetchFamilyRanking("block-blast").then((server) => {
+      if (!cancelled) setRanking(server); // 서버(D1) 값이 오면 가족 전체 최신 순위로 갱신
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view.screen, rankingVersion]);
 
   const startGame = (gameId: string) => {
     if (!playerName) {

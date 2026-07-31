@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "game-project",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-07-02",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "game-scores",
+      "database_id": "9a7c4bb0-0039-4eb1-8982-0e1e75d094b0"
+    }
+  ]
+}

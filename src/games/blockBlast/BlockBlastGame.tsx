@@ -15,7 +15,7 @@ import {
   type Board,
 } from "./boardLogic";
 import { randomPiece, shapeBounds, type Piece } from "./shapes";
-import { getMyBestScore, recordScore } from "../../lib/storage";
+import { fetchFamilyRanking, getMyBestScore, submitScore } from "../../lib/storage";
 import { isMuted, toggleMuted } from "../../lib/sound";
 import {
   initBlockBlastAudio,
@@ -76,6 +76,18 @@ export default function BlockBlastGame({
     startBlockBlastMusic();
     return () => {
       stopBlockBlastMusic();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchFamilyRanking("block-blast").then(() => {
+      if (cancelled) return;
+      const serverBest = getMyBestScore("block-blast");
+      setBest((prev) => Math.max(prev, serverBest));
+    });
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -168,7 +180,7 @@ export default function BlockBlastGame({
     setBoard(nextBoard);
     setTray(nextTray);
 
-    const isRecord = recordScore("block-blast", playerName, newScore);
+    const isRecord = submitScore("block-blast", playerName, newScore);
     if (isRecord) {
       setBest(newScore);
     }

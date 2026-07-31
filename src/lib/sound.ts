@@ -121,7 +121,14 @@ export interface MusicTrack {
   lead: { freq: number; beats: number }[];
 }
 
+/** "A Tale of Two Clocks" 패턴 — 짧은 lookahead(0.15초)씩만 미리 예약해서,
+ *  stopMusic()을 부르면 이미 울리고 있는 노트만 즉시 끄면 되고 몇 초씩 밀려서
+ *  계속 들리는 일이 없게 한다. */
+const SCHEDULE_AHEAD_SEC = 0.15;
+const SCHEDULER_INTERVAL_MS = 60;
+
 let musicTimer: number | null = null;
+let activeMusicNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
 
 export function startMusic(track: MusicTrack): void {
   stopMusic();
@@ -129,40 +136,49 @@ export function startMusic(track: MusicTrack): void {
   if (!musicBus) return;
   const bus = musicBus;
   const beatSec = 60 / track.bpm;
-  const loopLen = track.bass.reduce((s, n) => s + n.beats, 0) * beatSec;
-  const scheduleAheadSec = loopLen * 2;
 
-  const scheduleLine = (line: { freq: number; beats: number }[], startAt: number, type: Wave, volume: number) => {
-    let t = startAt;
-    for (const n of line) {
-      const dur = n.beats * beatSec;
-      if (n.freq > 0) {
-        const osc = c.createOscillator();
-        osc.type = type;
-        osc.frequency.value = n.freq;
-        const gain = c.createGain();
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(volume, t + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.9);
-        osc.connect(gain);
-        gain.connect(bus);
-        osc.start(t);
-        osc.stop(t + dur);
-      }
-      t += dur;
-    }
+  let bassIdx = 0;
+  let leadIdx = 0;
+  let nextBassTime = c.currentTime + 0.05;
+  let nextLeadTime = c.currentTime + 0.05;
+
+  const scheduleNote = (freq: number, dur: number, type: Wave, volume: number, time: number) => {
+    if (freq <= 0) return;
+    const osc = c.createOscillator();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const gain = c.createGain();
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(volume, time + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur * 0.9);
+    osc.connect(gain);
+    gain.connect(bus);
+    osc.start(time);
+    osc.stop(time + dur);
+    const entry = { osc, gain };
+    activeMusicNodes.push(entry);
+    osc.onended = () => {
+      activeMusicNodes = activeMusicNodes.filter((n) => n !== entry);
+    };
   };
 
-  let cursor = c.currentTime + 0.1;
   const tick = () => {
-    while (cursor < c.currentTime + scheduleAheadSec) {
-      scheduleLine(track.bass, cursor, "triangle", 0.5);
-      scheduleLine(track.lead, cursor, "square", 0.3);
-      cursor += loopLen;
+    const horizon = c.currentTime + SCHEDULE_AHEAD_SEC;
+    while (nextBassTime < horizon) {
+      const note = track.bass[bassIdx % track.bass.length];
+      scheduleNote(note.freq, note.beats * beatSec, "triangle", 0.5, nextBassTime);
+      nextBassTime += note.beats * beatSec;
+      bassIdx++;
+    }
+    while (nextLeadTime < horizon) {
+      const note = track.lead[leadIdx % track.lead.length];
+      scheduleNote(note.freq, note.beats * beatSec, "square", 0.3, nextLeadTime);
+      nextLeadTime += note.beats * beatSec;
+      leadIdx++;
     }
   };
   tick();
-  musicTimer = window.setInterval(tick, Math.max(200, loopLen * 500));
+  musicTimer = window.setInterval(tick, SCHEDULER_INTERVAL_MS);
 }
 
 export function stopMusic(): void {
@@ -170,4 +186,18 @@ export function stopMusic(): void {
     window.clearInterval(musicTimer);
     musicTimer = null;
   }
+  if (ctx) {
+    const now = ctx.currentTime;
+    for (const { osc, gain } of activeMusicNodes) {
+      try {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        osc.stop(now + 0.06);
+      } catch {
+        // 이미 정지된 노드일 수 있음 — 무시
+      }
+    }
+  }
+  activeMusicNodes = [];
 }

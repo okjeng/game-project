@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# wrangler 로컬 상태(D1 로컬 sqlite 등) — 원격 D1이 진짜 데이터
+.wrangler
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

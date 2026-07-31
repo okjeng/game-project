@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { GAME_CONFIG } from "./config";
 import { createInitialState, step, type GameState } from "./engine";
 import { draw, type FloatingText } from "./draw";
-import { getFamilyRanking, getMyBestScore, recordScore } from "../../lib/storage";
+import {
+  fetchFamilyRanking,
+  getFamilyRanking,
+  getMyBestScore,
+  submitScore,
+  type RankingEntry,
+} from "../../lib/storage";
 import { isMuted, toggleMuted } from "../../lib/sound";
 import {
   initGateShooterAudio,
@@ -36,6 +42,7 @@ export default function GateShooterGame({
   const [finalStats, setFinalStats] = useState<{ score: number; monstersDefeated: number } | null>(null);
   const [showRanking, setShowRanking] = useState(false);
   const [muted, setMutedState] = useState(() => isMuted());
+  const [ranking, setRanking] = useState<RankingEntry[]>(() => getFamilyRanking("gate-shooter"));
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
@@ -44,6 +51,18 @@ export default function GateShooterGame({
   const keysRef = useRef<Set<string>>(new Set());
   const scoreRef = useRef(0);
   const charactersRef = useRef<number>(GAME_CONFIG.startingCharacters);
+
+  const refreshRanking = () => {
+    fetchFamilyRanking("gate-shooter").then((server) => {
+      setRanking(server);
+      setBest((prev) => Math.max(prev, getMyBestScore("gate-shooter")));
+    });
+  };
+
+  useEffect(() => {
+    refreshRanking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -129,11 +148,12 @@ export default function GateShooterGame({
         stopped = true;
         stopGateShooterMusic();
         playGameOverSfx();
-        const isRecord = recordScore("gate-shooter", playerName, next.score);
+        const isRecord = submitScore("gate-shooter", playerName, next.score);
         if (isRecord) {
           setBest(next.score);
           window.setTimeout(playNewRecordSfx, 550);
         }
+        refreshRanking();
         setFinalStats({ score: next.score, monstersDefeated: next.monstersDefeated });
         setPhase("gameover");
         return;
@@ -186,7 +206,6 @@ export default function GateShooterGame({
     setMutedState(toggleMuted());
   };
 
-  const ranking = getFamilyRanking("gate-shooter");
   const isNewRecord = finalStats != null && finalStats.score > 0 && finalStats.score >= best;
 
   return (
