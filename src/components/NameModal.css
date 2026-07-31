@@ -1,0 +1,74 @@
+.name-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 20px;
+}
+
+.name-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 30px 26px;
+  width: min(90vw, 340px);
+  text-align: center;
+}
+
+.name-card h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+
+.name-card p {
+  margin: 0 0 18px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.name-card input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 15px;
+  text-align: center;
+  outline: none;
+  margin-bottom: 18px;
+}
+
+.name-card input:focus {
+  border-color: var(--neon-green);
+}
+
+.name-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.name-actions .bb-btn {
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.name-actions .bb-btn-primary {
+  background: var(--neon-green);
+  border-color: var(--neon-green);
+  color: #0a0a0b;
+}
+
+.name-actions .bb-btn-primary:disabled {
+  opacity: 0.4;
+}

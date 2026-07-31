@@ -1,0 +1,52 @@
+.family {
+  margin-top: 56px;
+  padding-top: 32px;
+  padding-bottom: 56px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.family-heading {
+  font-size: 20px;
+  margin: 0 0 22px;
+}
+
+.family-empty {
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+.family-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.family-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+}
+
+.family-medal {
+  font-size: 18px;
+  width: 32px;
+}
+
+.family-name {
+  flex: 1;
+  text-align: left;
+  font-weight: 700;
+}
+
+.family-score {
+  color: var(--neon-amber);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
