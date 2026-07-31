@@ -42,6 +42,7 @@ export interface GameState {
 export type GameEvent =
   | { type: "kill"; x: number; y: number }
   | { type: "gate"; value: number; x: number; y: number }
+  | { type: "shoot" }
   | { type: "gameover" };
 
 function clamp(v: number, min: number, max: number): number {
@@ -128,7 +129,7 @@ export function step(
   // 자동 사격
   let fireTimer = state.fireTimer - dtMs;
   let bullets = state.bullets;
-  if (fireTimer <= 0) {
+  if (fireTimer <= 0 && state.characters > 0) {
     fireTimer += GAME_CONFIG.fireIntervalMs;
     const count = bulletsPerVolley(state.characters);
     const spread = count === 1 ? 0 : Math.min(count * 10, 60);
@@ -138,6 +139,7 @@ export function step(
       fresh.push({ id: nextId++, x: playerX + offset, y: GAME_CONFIG.playerY - GAME_CONFIG.playerRadius });
     }
     bullets = [...bullets, ...fresh];
+    events.push({ type: "shoot" });
   }
 
   // 이동

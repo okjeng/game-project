@@ -3,6 +3,19 @@ import { GAME_CONFIG } from "./config";
 import { createInitialState, step, type GameState } from "./engine";
 import { draw, type FloatingText } from "./draw";
 import { getFamilyRanking, getMyBestScore, recordScore } from "../../lib/storage";
+import { isMuted, toggleMuted } from "../../lib/sound";
+import {
+  initGateShooterAudio,
+  playGameOverSfx,
+  playGateNegativeSfx,
+  playGatePositiveSfx,
+  playHitSfx,
+  playNewRecordSfx,
+  playShootSfx,
+  playStartSfx,
+  startGateShooterMusic,
+  stopGateShooterMusic,
+} from "./sfx";
 import "./GateShooterGame.css";
 
 type Phase = "start" | "playing" | "gameover";
@@ -22,6 +35,7 @@ export default function GateShooterGame({
   const [best, setBest] = useState(() => getMyBestScore("gate-shooter"));
   const [finalStats, setFinalStats] = useState<{ score: number; monstersDefeated: number } | null>(null);
   const [showRanking, setShowRanking] = useState(false);
+  const [muted, setMutedState] = useState(() => isMuted());
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState>(createInitialState());
@@ -78,6 +92,7 @@ export default function GateShooterGame({
             life: 650,
             maxLife: 650,
           });
+          playHitSfx();
         } else if (ev.type === "gate") {
           floatingTextsRef.current.push({
             id: floatingTextSeq++,
@@ -89,6 +104,10 @@ export default function GateShooterGame({
             maxLife: 900,
             big: true,
           });
+          if (ev.value > 0) playGatePositiveSfx();
+          else playGateNegativeSfx();
+        } else if (ev.type === "shoot") {
+          playShootSfx();
         }
       }
       floatingTextsRef.current = floatingTextsRef.current
@@ -108,8 +127,13 @@ export default function GateShooterGame({
 
       if (next.status === "gameover") {
         stopped = true;
+        stopGateShooterMusic();
+        playGameOverSfx();
         const isRecord = recordScore("gate-shooter", playerName, next.score);
-        if (isRecord) setBest(next.score);
+        if (isRecord) {
+          setBest(next.score);
+          window.setTimeout(playNewRecordSfx, 550);
+        }
         setFinalStats({ score: next.score, monstersDefeated: next.monstersDefeated });
         setPhase("gameover");
         return;
@@ -140,6 +164,7 @@ export default function GateShooterGame({
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
+      stopGateShooterMusic();
       canvas.removeEventListener("pointermove", handlePointer);
       canvas.removeEventListener("pointerdown", handlePointer);
       window.removeEventListener("keydown", handleKeyDown);
@@ -149,8 +174,16 @@ export default function GateShooterGame({
   }, [phase, playerName]);
 
   const startGame = () => {
+    initGateShooterAudio();
+    playStartSfx();
+    startGateShooterMusic();
     setFinalStats(null);
     setPhase("playing");
+  };
+
+  const handleMuteToggle = () => {
+    initGateShooterAudio();
+    setMutedState(toggleMuted());
   };
 
   const ranking = getFamilyRanking("gate-shooter");
@@ -162,11 +195,12 @@ export default function GateShooterGame({
         <button className="gs-back" onClick={onExit}>
           ← 나가기
         </button>
-        {phase === "playing" && (
-          <div className="gs-hud">
-            <span className="gs-hud-item">👥 {characters}</span>
-          </div>
-        )}
+        <div className="gs-hud">
+          {phase === "playing" && <span className="gs-hud-item">👥 {characters}</span>}
+          <button className="gs-mute-btn" onClick={handleMuteToggle} aria-label="소리 켜기/끄기">
+            {muted ? "🔇" : "🔊"}
+          </button>
+        </div>
       </div>
 
       {phase === "playing" && (

@@ -27,6 +27,12 @@
   color: var(--text);
 }
 
+.gs-hud {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .gs-hud-item {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -35,6 +41,23 @@
   font-size: 14px;
   padding: 7px 14px;
   border-radius: 999px;
+}
+
+.gs-mute-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gs-mute-btn:hover {
+  border-color: var(--neon-violet);
 }
 
 .gs-hero-score {
