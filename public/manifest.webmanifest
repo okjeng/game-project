@@ -1,0 +1,26 @@
+{
+  "name": "가족 게임방",
+  "short_name": "가족 게임방",
+  "description": "우리 가족만의 게임방 — 블록 블라스트, 테트리스 등 여러 게임을 즐기고 가족 최고 기록에 도전하세요.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "ko",
+  "background_color": "#18181b",
+  "theme_color": "#18181b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
