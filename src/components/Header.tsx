@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import InstallGuide from "./InstallGuide";
 import "./Header.css";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,7 +24,7 @@ export default function Header({
   const [searchOpen, setSearchOpen] = useState(false);
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneDisplay());
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   useEffect(() => {
     const onBeforeInstallPrompt = (e: Event) => {
@@ -33,7 +34,7 @@ export default function Header({
     const onAppInstalled = () => {
       setInstallEvent(null);
       setIsStandalone(true);
-      setShowInstallHelp(false);
+      setShowInstallGuide(false);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onAppInstalled);
@@ -51,7 +52,7 @@ export default function Header({
       setInstallEvent(null);
       return;
     }
-    setShowInstallHelp((v) => !v);
+    setShowInstallGuide(true);
   };
 
   return (
@@ -81,26 +82,13 @@ export default function Header({
             🏆 가족 기록
           </button>
           {!isStandalone && (
-            <div className="header-install">
-              <button className="header-install-btn" onClick={handleInstallClick}>
-                📲 앱 설치
-              </button>
-              {showInstallHelp && (
-                <div className="header-install-help">
-                  <p>
-                    주소창 오른쪽의 <strong>설치 아이콘(⊕)</strong>을 눌러주세요.
-                  </p>
-                  <p>안 보이면 브라우저 메뉴(⋮) → "앱 설치"를 확인해보세요.</p>
-                  <p className="header-install-help-note">Chrome / Edge에서 설치할 수 있어요.</p>
-                  <button className="header-install-help-close" onClick={() => setShowInstallHelp(false)}>
-                    닫기
-                  </button>
-                </div>
-              )}
-            </div>
+            <button className="header-install-btn" onClick={handleInstallClick}>
+              📲 앱 설치
+            </button>
           )}
         </div>
       </div>
+      {showInstallGuide && <InstallGuide onClose={() => setShowInstallGuide(false)} />}
     </header>
   );
 }

@@ -69,10 +69,6 @@
   }
 }
 
-.header-install {
-  position: relative;
-}
-
 .header-install-btn {
   background: var(--neon-cyan);
   border: 1px solid var(--neon-cyan);
@@ -82,41 +78,4 @@
   padding: 8px 14px;
   border-radius: 999px;
   white-space: nowrap;
-}
-
-.header-install-help {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 240px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 60;
-  text-align: left;
-}
-
-.header-install-help p {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.5;
-}
-
-.header-install-help-note {
-  color: var(--text-faint) !important;
-  font-size: 12px !important;
-}
-
-.header-install-help-close {
-  width: 100%;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 7px;
-  border-radius: 999px;
-  font-size: 13px;
-  margin-top: 4px;
 }
