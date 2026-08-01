@@ -17,16 +17,20 @@ import { fetchFamilyRanking, getFamilyRanking, getMyBestScore, submitScore, type
 import RhythmLobby from "./RhythmLobby";
 import RhythmStub, { type StubKind } from "./RhythmStub";
 import ModeSelect from "./ModeSelect";
+import SongSelect from "./SongSelect";
 import TileRunnerGame from "./tileRunner/TileRunnerGame";
+import { DEFAULT_SONG, type SongMeta } from "./songs";
+import { playSongTrack, stopSongTrack } from "./musicTrack";
 import "./RhythmGame.css";
 
-type Phase = "lobby" | "stub" | "modeSelect" | "start" | "playing" | "finished" | "runner";
+type Phase = "lobby" | "stub" | "modeSelect" | "songSelect" | "start" | "playing" | "finished" | "runner";
 
 let judgeTextSeq = 0;
 
 export default function RhythmGame({ playerName, onExit }: { playerName: string; onExit: () => void }) {
   const [phase, setPhase] = useState<Phase>("lobby");
   const [stubKind, setStubKind] = useState<StubKind>("song");
+  const [selectedSong, setSelectedSong] = useState<SongMeta>(DEFAULT_SONG);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
   const comboRef = useRef(0);
   const judgeTextsRef = useRef<JudgeText[]>([]);
   const activeLaneRef = useRef<number | null>(null);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
 
   const refreshRanking = () => {
     fetchFamilyRanking("rhythm-game").then((server) => {
@@ -64,7 +69,9 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
 
   const handleMuteToggle = () => {
     initRhythmAudio();
-    setMutedState(toggleMuted());
+    const nowMuted = toggleMuted();
+    setMutedState(nowMuted);
+    if (musicRef.current) musicRef.current.muted = nowMuted;
   };
 
   const handleHit = (lane: number) => {
@@ -123,7 +130,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
       const nextLabel = remain > 1.4 ? "3" : remain > 0.7 ? "2" : remain > 0 ? "1" : null;
       setCountdownLabel(nextLabel);
 
-      const { state: next, events } = tick(stateRef.current, now, songStartRef.current);
+      const { state: next, events } = tick(stateRef.current, now);
       stateRef.current = next;
 
       for (const ev of events) {
@@ -141,6 +148,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
           setCombo(0);
         } else if (ev.type === "finished") {
           stopped = true;
+          stopSongTrack(musicRef.current);
           playFinishedSfx();
           const isRecord = submitScore("rhythm-game", playerName, next.score);
           if (isRecord) {
@@ -179,22 +187,26 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
       stopped = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", handleKeyDown);
+      stopSongTrack(musicRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   const startGame = () => {
     initRhythmAudio();
+    stopSongTrack(musicRef.current);
     const start = audioNow() + GAME_CONFIG.leadInSec;
     songStartRef.current = start;
-    stateRef.current = createInitialState(start);
+    stateRef.current = createInitialState(start, selectedSong.bpm);
     scoreRef.current = 0;
     comboRef.current = 0;
     judgeTextsRef.current = [];
     setScore(0);
     setCombo(0);
     setFinalStats(null);
-    scheduleBassPulses(start);
+    window.setTimeout(() => {
+      musicRef.current = playSongTrack(selectedSong.audioUrl, () => scheduleBassPulses(start, selectedSong.bpm));
+    }, Math.max(0, (GAME_CONFIG.leadInSec - 0.05) * 1000));
 
     const leadMs = GAME_CONFIG.leadInSec * 1000;
     window.setTimeout(() => playCountdownBeep(false), Math.max(0, leadMs - 2000));
@@ -252,7 +264,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
           <RhythmLobby
             best={best}
             onPlay={() => setPhase("modeSelect")}
-            onSongSelect={() => openStub("song")}
+            onSongSelect={() => setPhase("songSelect")}
             onCharacter={() => openStub("character")}
             onCollection={() => openStub("collection")}
             onSettings={() => openStub("settings")}
@@ -263,20 +275,33 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
 
         {phase === "modeSelect" && (
           <ModeSelect
-            onSelectNote={() => setPhase("start")}
+            onSelectNote={() => setPhase("songSelect")}
             onSelectRunner={() => setPhase("runner")}
             onBack={() => setPhase("lobby")}
           />
         )}
 
+        {phase === "songSelect" && (
+          <SongSelect
+            selected={selectedSong}
+            onSelect={(song) => {
+              setSelectedSong(song);
+              setPhase("start");
+            }}
+            onBack={() => setPhase("modeSelect")}
+          />
+        )}
+
         {phase === "start" && (
           <div className="rg-panel">
-            <button className="rg-btn rg-btn-ghost rg-btn-back" onClick={() => setPhase("modeSelect")}>
-              ← 모드 선택
+            <button className="rg-btn rg-btn-ghost rg-btn-back" onClick={() => setPhase("songSelect")}>
+              ← 곡 선택
             </button>
-            <p className="rg-panel-emoji">🎵</p>
-            <h1 className="rg-panel-title">BEAT MATCH</h1>
-            <p className="rg-panel-tagline">내려오는 노트를 박자에 맞춰 눌러보세요!</p>
+            <p className="rg-panel-emoji">{selectedSong.emoji}</p>
+            <h1 className="rg-panel-title">{selectedSong.name}</h1>
+            <p className="rg-panel-tagline">
+              {selectedSong.speedLabel} · BPM {selectedSong.bpm} — 내려오는 노트를 박자에 맞춰 눌러보세요!
+            </p>
             <button className="rg-btn rg-btn-primary" onClick={startGame}>
               ▶ 게임 시작
             </button>
@@ -330,7 +355,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
               <button className="rg-btn rg-btn-primary" onClick={startGame}>
                 다시 플레이
               </button>
-              <button className="rg-btn rg-btn-ghost" onClick={() => openStub("song")}>
+              <button className="rg-btn rg-btn-ghost" onClick={() => setPhase("songSelect")}>
                 곡 선택
               </button>
               <button className="rg-btn rg-btn-ghost" onClick={() => setPhase("lobby")}>

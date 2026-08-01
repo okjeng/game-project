@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from "./config";
-import { BEAT_SEC, SONG_LENGTH_BEATS, SONG_NOTES, type NoteEvent } from "./song";
+import { SONG_LENGTH_BEATS, SONG_NOTES, type NoteEvent } from "./song";
 
 export type Judgment = "perfect" | "good" | "miss";
 
@@ -21,6 +21,7 @@ export interface RhythmState {
   goodCount: number;
   missCount: number;
   status: "playing" | "finished";
+  songEndTime: number;
 }
 
 export type RhythmEvent =
@@ -28,13 +29,14 @@ export type RhythmEvent =
   | { type: "miss"; lane: number }
   | { type: "finished" };
 
-export function createInitialState(songStartTime: number): RhythmState {
+export function createInitialState(songStartTime: number, bpm: number): RhythmState {
+  const beatSec = 60 / bpm;
   const notes: Note[] = SONG_NOTES.map((n: NoteEvent, i: number) => ({
     id: i,
     beat: n.beat,
     lane: n.lane,
     freq: n.freq,
-    targetTime: songStartTime + n.beat * BEAT_SEC,
+    targetTime: songStartTime + n.beat * beatSec,
     judged: null,
   }));
   return {
@@ -46,14 +48,12 @@ export function createInitialState(songStartTime: number): RhythmState {
     goodCount: 0,
     missCount: 0,
     status: "playing",
+    songEndTime: songStartTime + SONG_LENGTH_BEATS * beatSec + GAME_CONFIG.tailSec,
   };
 }
 
-const songEndTime = (songStartTime: number) =>
-  songStartTime + SONG_LENGTH_BEATS * BEAT_SEC + GAME_CONFIG.tailSec;
-
 /** 시간 경과만 반영 — 판정 못 받고 지나간 노트를 miss 처리하고, 곡이 끝났는지 확인한다 */
-export function tick(state: RhythmState, nowSec: number, songStartTime: number): { state: RhythmState; events: RhythmEvent[] } {
+export function tick(state: RhythmState, nowSec: number): { state: RhythmState; events: RhythmEvent[] } {
   if (state.status === "finished") return { state, events: [] };
 
   const events: RhythmEvent[] = [];
@@ -71,7 +71,7 @@ export function tick(state: RhythmState, nowSec: number, songStartTime: number):
   });
 
   let status: RhythmState["status"] = state.status;
-  if (nowSec > songEndTime(songStartTime)) {
+  if (nowSec > state.songEndTime) {
     status = "finished";
     events.push({ type: "finished" });
   }

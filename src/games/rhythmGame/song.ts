@@ -4,9 +4,7 @@ export interface NoteEvent {
   freq: number;
 }
 
-export const BPM = 96;
-export const BEAT_SEC = 60 / BPM;
-
+// 노트 패턴은 박자(beat) 단위라 템포(BPM)와 무관하다 — 실제 초 단위 간격은 선택한 곡의 BPM에 맞춰 재생 시점에 계산한다
 // C major 펜타토닉 — 어떻게 섞어도 불협화음이 안 나서 절차적으로 만들어도 듣기 좋다
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0]; // C5 D5 E5 G5 A5
 

@@ -1,16 +1,17 @@
 import { audioNow, playSequence, playTone, unlockAudio } from "../../lib/sound";
-import { BASS_FREQ, BEAT_SEC, SONG_LENGTH_BEATS } from "./song";
+import { BASS_FREQ, SONG_LENGTH_BEATS } from "./song";
 
 export function initRhythmAudio(): void {
   unlockAudio();
 }
 
 /** 곡 전체의 베이스 펄스를 시작 시점 기준으로 한 번에 예약한다 — 정확히 박자에 맞춰 울린다 */
-export function scheduleBassPulses(songStartTime: number): void {
+export function scheduleBassPulses(songStartTime: number, bpm: number): void {
   const now = audioNow();
+  const beatSec = 60 / bpm;
   const totalBeats = Math.ceil(SONG_LENGTH_BEATS);
   for (let b = 0; b < totalBeats; b++) {
-    const t = songStartTime + b * BEAT_SEC;
+    const t = songStartTime + b * beatSec;
     const delay = t - now;
     if (delay < 0) continue;
     playTone(BASS_FREQ, 0.12, { type: "triangle", volume: 0.3, delaySec: delay });

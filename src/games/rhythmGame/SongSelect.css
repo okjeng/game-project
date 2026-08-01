@@ -1,0 +1,45 @@
+.ss-panel {
+  text-align: center;
+}
+
+.ss-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.ss-card:hover {
+  border-color: var(--neon-cyan);
+}
+
+.ss-card-selected {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px rgba(51, 201, 220, 0.35);
+}
+
+.ss-card-emoji {
+  font-size: 28px;
+}
+
+.ss-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ss-card-title {
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.ss-card-sub {
+  color: var(--text-dim);
+  font-size: 12px;
+}
