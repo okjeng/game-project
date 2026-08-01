@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { RUNNER_CONFIG } from "./config";
-import { createInitialState, setLane, tick, type Lane, type RunnerState } from "./engine";
-import { draw, type JudgeText } from "./draw";
-import { RUNNER_BEAT_SEC } from "./track";
+import { createInitialState, tap, tick, type RunnerState } from "./engine";
+import { draw, type JudgeText, type Particle } from "./draw";
 import { audioNow, isMuted, toggleMuted } from "../../../lib/sound";
 import { initRhythmAudio, playCountdownBeep, playFinishedSfx, playMissSfx, playNewRecordSfx } from "../sfx";
-import { playRunnerHitSfx, scheduleRunnerBassPulses } from "./sfx";
+import { playRunnerHopSfx, scheduleRunnerBassPulses } from "./sfx";
 import { fetchFamilyRanking, getFamilyRanking, getMyBestScore, submitScore, type RankingEntry } from "../../../lib/storage";
 import "../RhythmGame.css";
 import "./TileRunnerGame.css";
@@ -13,13 +12,12 @@ import "./TileRunnerGame.css";
 const SCORE_ID = "rhythm-tile-runner";
 type Phase = "start" | "playing" | "finished";
 
-let judgeTextSeq = 0;
+let seq = 0;
 
 export default function TileRunnerGame({ playerName, onExit }: { playerName: string; onExit: () => void }) {
   const [phase, setPhase] = useState<Phase>("start");
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [lives, setLives] = useState<number>(RUNNER_CONFIG.lives);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
   const [best, setBest] = useState(() => getMyBestScore(SCORE_ID));
   const [ranking, setRanking] = useState<RankingEntry[]>(() => getFamilyRanking(SCORE_ID));
@@ -28,7 +26,6 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
   const [finalStats, setFinalStats] = useState<{
     score: number;
     hit: number;
-    miss: number;
     maxCombo: number;
     cleared: boolean;
   } | null>(null);
@@ -39,6 +36,7 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
   const scoreRef = useRef(0);
   const comboRef = useRef(0);
   const judgeTextsRef = useRef<JudgeText[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
 
   const refreshRanking = () => {
     fetchFamilyRanking(SCORE_ID).then((server) => {
@@ -57,9 +55,46 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
     setMutedState(toggleMuted());
   };
 
-  const moveTo = (lane: Lane) => {
+  const spawnBurst = (x: number, y: number, color: string) => {
+    for (let i = 0; i < 10; i++) {
+      const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.4;
+      const speed = 60 + Math.random() * 90;
+      particlesRef.current.push({
+        id: seq++,
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 40,
+        color,
+        life: 420,
+        maxLife: 420,
+      });
+    }
+  };
+
+  const handleTap = () => {
     if (!stateRef.current || phase !== "playing") return;
-    stateRef.current = setLane(stateRef.current, lane);
+    const now = audioNow();
+    const { state: next, events } = tap(stateRef.current, now);
+    stateRef.current = next;
+
+    for (const ev of events) {
+      if (ev.type === "hit") {
+        judgeTextsRef.current.push({ id: seq++, text: "PERFECT", color: "#2ecc71", life: 420, maxLife: 420 });
+        playRunnerHopSfx(next.combo);
+        spawnBurst(RUNNER_CONFIG.worldWidth / 2, RUNNER_CONFIG.judgmentY - 40, "#2ecc71");
+        if (next.score !== scoreRef.current) {
+          scoreRef.current = next.score;
+          setScore(next.score);
+        }
+        if (next.combo !== comboRef.current) {
+          comboRef.current = next.combo;
+          setCombo(next.combo);
+        }
+      } else if (ev.type === "miss") {
+        playMissSfx();
+      }
+    }
   };
 
   useEffect(() => {
@@ -84,74 +119,45 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
       const nextLabel = remain > 1.4 ? "3" : remain > 0.7 ? "2" : remain > 0 ? "1" : null;
       setCountdownLabel(nextLabel);
 
-      const { state: next, events } = tick(stateRef.current, now, songStartRef.current);
+      const { state: next, events } = tick(stateRef.current, now);
       stateRef.current = next;
 
       for (const ev of events) {
-        if (ev.type === "hit") {
-          judgeTextsRef.current.push({
-            id: judgeTextSeq++,
-            text: "GREAT",
-            color: "#2ecc71",
-            life: 450,
-            maxLife: 450,
-          });
-          playRunnerHitSfx(ev.lane);
-          if (next.score !== scoreRef.current) {
-            scoreRef.current = next.score;
-            setScore(next.score);
-          }
-          if (next.combo !== comboRef.current) {
-            comboRef.current = next.combo;
-            setCombo(next.combo);
-          }
-        } else if (ev.type === "miss") {
-          judgeTextsRef.current.push({
-            id: judgeTextSeq++,
-            text: "MISS",
-            color: "#ff6b6b",
-            life: 450,
-            maxLife: 450,
-          });
+        if (ev.type === "miss") {
+          judgeTextsRef.current.push({ id: seq++, text: "MISS", color: "#ff6b6b", life: 500, maxLife: 500 });
           playMissSfx();
-          comboRef.current = 0;
-          setCombo(0);
-          setLives(next.lives);
-        } else if (ev.type === "gameover" || ev.type === "cleared") {
-          stopped = true;
-          playFinishedSfx();
-          const isRecord = submitScore(SCORE_ID, playerName, next.score);
-          if (isRecord) {
-            setBest(next.score);
-            window.setTimeout(playNewRecordSfx, 550);
-          }
-          setFinalStats({
-            score: next.score,
-            hit: next.hitCount,
-            miss: next.missCount,
-            maxCombo: next.maxCombo,
-            cleared: ev.type === "cleared",
-          });
-          setPhase("finished");
-          refreshRanking();
-          return;
         }
       }
 
-      judgeTextsRef.current = judgeTextsRef.current
-        .map((t) => ({ ...t, life: t.life - 16 }))
-        .filter((t) => t.life > 0);
+      if (next.status === "finished" && !stopped) {
+        stopped = true;
+        playFinishedSfx();
+        const isRecord = submitScore(SCORE_ID, playerName, next.score);
+        if (isRecord) {
+          setBest(next.score);
+          window.setTimeout(playNewRecordSfx, 550);
+        }
+        setFinalStats({ score: next.score, hit: next.hitCount, maxCombo: next.maxCombo, cleared: next.cleared });
+        setPhase("finished");
+        refreshRanking();
+        return;
+      }
 
-      draw(ctx, next, now, RUNNER_BEAT_SEC, judgeTextsRef.current);
+      judgeTextsRef.current = judgeTextsRef.current.map((t) => ({ ...t, life: t.life - 16 })).filter((t) => t.life > 0);
+      particlesRef.current = particlesRef.current
+        .map((p) => ({ ...p, x: p.x + p.vx * 0.016, y: p.y + p.vy * 0.016, vy: p.vy + 240 * 0.016, life: p.life - 16 }))
+        .filter((p) => p.life > 0);
+
+      draw(ctx, next, now, judgeTextsRef.current, particlesRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!stateRef.current) return;
-      const key = e.key.toLowerCase();
-      if (key === "arrowleft" || key === "a") moveTo(Math.max(0, stateRef.current.currentLane - 1) as Lane);
-      else if (key === "arrowright" || key === "d") moveTo(Math.min(2, stateRef.current.currentLane + 1) as Lane);
+      if (e.key === " " || e.key === "ArrowUp" || e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        handleTap();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
 
@@ -171,9 +177,9 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
     scoreRef.current = 0;
     comboRef.current = 0;
     judgeTextsRef.current = [];
+    particlesRef.current = [];
     setScore(0);
     setCombo(0);
-    setLives(RUNNER_CONFIG.lives);
     setFinalStats(null);
     scheduleRunnerBassPulses(start);
 
@@ -194,12 +200,7 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
           ← 나가기
         </button>
         <div className="rg-hud">
-          {phase === "playing" && (
-            <>
-              <span className="tr-lives">{"❤️".repeat(Math.max(0, lives))}</span>
-              <span className="rg-combo">COMBO {combo}</span>
-            </>
-          )}
+          {phase === "playing" && <span className="rg-combo">COMBO {combo}</span>}
           <button className="rg-mute-btn" onClick={handleMuteToggle} aria-label="소리 켜기/끄기">
             {muted ? "🔇" : "🔊"}
           </button>
@@ -215,13 +216,7 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
       <div className="rg-stage-wrap">
         <div className="rg-stage" style={{ display: phase === "playing" ? "block" : "none" }}>
           <canvas ref={canvasRef} className="rg-canvas" />
-          {phase === "playing" && (
-            <div className="tr-touch-lanes">
-              {[0, 1, 2].map((i) => (
-                <button key={i} className="rg-touch-lane" onPointerDown={() => moveTo(i as Lane)} />
-              ))}
-            </div>
-          )}
+          {phase === "playing" && <button className="tr-tap-zone" onPointerDown={handleTap} aria-label="탭해서 점프" />}
           {countdownLabel && <div className="rg-countdown">{countdownLabel}</div>}
         </div>
 
@@ -229,7 +224,7 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
           <div className="rg-panel">
             <p className="rg-panel-emoji">🏃</p>
             <h1 className="rg-panel-title">TILE RUNNER</h1>
-            <p className="rg-panel-tagline">박자에 맞춰 타일 위로 이동하세요! 놓치면 하트가 줄어요.</p>
+            <p className="rg-panel-tagline">박자에 맞춰 탭! 캐릭터가 다음 타일로 점프해요. 타이밍을 놓치면 그대로 게임 끝!</p>
             <button className="rg-btn rg-btn-primary" onClick={startGame}>
               ▶ 게임 시작
             </button>
@@ -252,7 +247,7 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
                 )}
               </div>
             )}
-            <p className="rg-panel-hint">PC: ← → 방향키 &nbsp;·&nbsp; 모바일: 화면 3칸 탭</p>
+            <p className="rg-panel-hint">PC: 스페이스바 &nbsp;·&nbsp; 모바일: 화면 아무 곳이나 탭</p>
           </div>
         )}
 
@@ -265,10 +260,6 @@ export default function TileRunnerGame({ playerName, onExit }: { playerName: str
               <div>
                 <span className="rg-final-stat-label">HIT</span>
                 <span className="rg-final-stat-value rg-perfect">{finalStats.hit}</span>
-              </div>
-              <div>
-                <span className="rg-final-stat-label">MISS</span>
-                <span className="rg-final-stat-value rg-miss">{finalStats.miss}</span>
               </div>
               <div>
                 <span className="rg-final-stat-label">MAX COMBO</span>

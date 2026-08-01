@@ -58,7 +58,9 @@ export function draw(
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // 노트
+  // 노트 — 피아노 타일처럼 레인 폭 대부분을 채우는 세로로 긴 타일
+  const tileW = laneWidth - 14;
+  const tileH = 62;
   for (const note of state.notes) {
     if (note.judged !== null && note.judged !== "miss") continue; // 성공 판정된 노트는 사라짐
     if (note.judged === "miss") continue;
@@ -71,7 +73,7 @@ export function draw(
     ctx.shadowBlur = 14;
     ctx.fillStyle = LANE_HEX[note.lane];
     ctx.beginPath();
-    ctx.arc(x, y, GAME_CONFIG.noteRadius, 0, Math.PI * 2);
+    ctx.roundRect(x - tileW / 2, y - tileH / 2, tileW, tileH, 8);
     ctx.fill();
     ctx.restore();
   }

@@ -4,7 +4,6 @@ export const GAME_CONFIG = {
   laneCount: 4,
   judgmentY: 600,
   travelSec: 1.8, // 노트가 화면 위에서 판정선까지 내려오는 시간
-  noteRadius: 24,
   perfectWindowSec: 0.07,
   goodWindowSec: 0.15,
   leadInSec: 2, // "3,2,1" 카운트다운 시간

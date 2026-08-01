@@ -1,102 +1,97 @@
 import { RUNNER_CONFIG } from "./config";
-import { RUNNER_BEAT_SEC, RUNNER_LANES, RUNNER_LENGTH_BEATS } from "./track";
+import { RUNNER_BEAT_SEC, RUNNER_HOP_COUNT } from "./track";
 
-export type Lane = 0 | 1 | 2;
-
-export interface Row {
+export interface Hop {
   index: number;
-  lane: Lane;
   targetTime: number;
   judged: "hit" | "miss" | null;
 }
 
 export interface RunnerState {
-  rows: Row[];
-  currentLane: Lane;
+  hops: Hop[];
+  standingIndex: number; // 마지막으로 착지에 성공한 타일 인덱스 (-1이면 출발 지점)
   score: number;
   combo: number;
   maxCombo: number;
-  lives: number;
   hitCount: number;
-  missCount: number;
   status: "playing" | "finished";
+  cleared: boolean;
 }
 
-export type RunnerEvent =
-  | { type: "hit"; lane: Lane }
-  | { type: "miss"; lane: Lane }
-  | { type: "gameover" }
-  | { type: "cleared" };
+export type RunnerEvent = { type: "hit"; index: number } | { type: "miss" } | { type: "cleared" };
 
 export function createInitialState(songStartTime: number): RunnerState {
-  const rows: Row[] = RUNNER_LANES.map((lane, i) => ({
+  const hops: Hop[] = Array.from({ length: RUNNER_HOP_COUNT }, (_, i) => ({
     index: i,
-    lane,
     targetTime: songStartTime + i * RUNNER_BEAT_SEC,
     judged: null,
   }));
   return {
-    rows,
-    currentLane: 1,
+    hops,
+    standingIndex: -1,
     score: 0,
     combo: 0,
     maxCombo: 0,
-    lives: RUNNER_CONFIG.lives,
     hitCount: 0,
-    missCount: 0,
     status: "playing",
+    cleared: false,
   };
 }
 
-const songEndTime = (songStartTime: number) =>
-  songStartTime + RUNNER_LENGTH_BEATS * RUNNER_BEAT_SEC + RUNNER_CONFIG.tailSec;
-
-export function setLane(state: RunnerState, lane: Lane): RunnerState {
-  if (state.status !== "playing") return state;
-  return { ...state, currentLane: lane };
+function nextHop(state: RunnerState): Hop | null {
+  return state.hops[state.standingIndex + 1] ?? null;
 }
 
-/** 매 프레임 호출 — 판정 시각이 지난 행을 현재 레인과 비교해 자동으로 성공/실패 판정한다 */
-export function tick(
-  state: RunnerState,
-  nowSec: number,
-  songStartTime: number
-): { state: RunnerState; events: RunnerEvent[] } {
+/** 매 프레임 호출 — 다음 타일의 판정 창을 놓치고 지나갔으면 즉시 게임오버 처리한다 */
+export function tick(state: RunnerState, nowSec: number): { state: RunnerState; events: RunnerEvent[] } {
   if (state.status === "finished") return { state, events: [] };
 
-  const events: RunnerEvent[] = [];
-  let combo = state.combo;
-  let maxCombo = state.maxCombo;
-  let score = state.score;
-  let lives = state.lives;
-  let hitCount = state.hitCount;
-  let missCount = state.missCount;
+  const hop = nextHop(state);
+  if (!hop) return { state, events: [] };
 
-  const rows = state.rows.map((row) => {
-    if (row.judged !== null || nowSec < row.targetTime) return row;
-    if (row.lane === state.currentLane) {
-      combo += 1;
-      maxCombo = Math.max(maxCombo, combo);
-      score += RUNNER_CONFIG.scorePerHit + combo * 2;
-      hitCount += 1;
-      events.push({ type: "hit", lane: row.lane });
-      return { ...row, judged: "hit" as const };
-    }
-    combo = 0;
-    lives -= 1;
-    missCount += 1;
-    events.push({ type: "miss", lane: row.lane });
-    return { ...row, judged: "miss" as const };
-  });
-
-  let status: RunnerState["status"] = state.status;
-  if (lives <= 0) {
-    status = "finished";
-    events.push({ type: "gameover" });
-  } else if (nowSec > songEndTime(songStartTime)) {
-    status = "finished";
-    events.push({ type: "cleared" });
+  if (nowSec > hop.targetTime + RUNNER_CONFIG.hitWindowSec) {
+    const hops = state.hops.map((h) => (h.index === hop.index ? { ...h, judged: "miss" as const } : h));
+    return {
+      state: { ...state, hops, combo: 0, status: "finished", cleared: false },
+      events: [{ type: "miss" }],
+    };
   }
 
-  return { state: { ...state, rows, combo, maxCombo, score, lives, hitCount, missCount, status }, events };
+  return { state, events: [] };
+}
+
+/** 탭 입력 — 다음 타일의 판정 시각과 비교해 정확도를 확인한다 */
+export function tap(state: RunnerState, nowSec: number): { state: RunnerState; events: RunnerEvent[] } {
+  if (state.status !== "playing") return { state, events: [] };
+
+  const hop = nextHop(state);
+  if (!hop) return { state, events: [] };
+
+  const diff = Math.abs(hop.targetTime - nowSec);
+  if (diff > RUNNER_CONFIG.hitWindowSec) {
+    const hops = state.hops.map((h) => (h.index === hop.index ? { ...h, judged: "miss" as const } : h));
+    return {
+      state: { ...state, hops, combo: 0, status: "finished", cleared: false },
+      events: [{ type: "miss" }],
+    };
+  }
+
+  const combo = state.combo + 1;
+  const hops = state.hops.map((h) => (h.index === hop.index ? { ...h, judged: "hit" as const } : h));
+  const isLast = hop.index === state.hops.length - 1;
+
+  return {
+    state: {
+      ...state,
+      hops,
+      standingIndex: hop.index,
+      combo,
+      maxCombo: Math.max(state.maxCombo, combo),
+      score: state.score + RUNNER_CONFIG.scorePerHit + combo * 2,
+      hitCount: state.hitCount + 1,
+      status: isLast ? "finished" : "playing",
+      cleared: isLast,
+    },
+    events: isLast ? [{ type: "hit", index: hop.index }, { type: "cleared" }] : [{ type: "hit", index: hop.index }],
+  };
 }
