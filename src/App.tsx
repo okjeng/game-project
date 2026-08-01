@@ -35,6 +35,17 @@ function App() {
   const bestScore = useMemo(() => getMyBestScore("block-blast"), [rankingByGame]);
 
   useEffect(() => {
+    window.history.replaceState({ screen: "home" }, "");
+    const onPopState = () => {
+      // 게임 중 기기/브라우저 뒤로가기를 누르면 앱이 완전히 종료되지 않고 메인 화면으로 돌아오게 한다
+      setView({ screen: "home" });
+      setRankingVersion((v) => v + 1);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
     if (view.screen !== "home") return;
     // 로컬 캐시로 즉시 표시
     setRankingByGame(Object.fromEntries(activeGames.map((g) => [g.id, getFamilyRanking(g.id)])));
@@ -49,19 +60,24 @@ function App() {
     };
   }, [view.screen, rankingVersion, activeGames]);
 
+  const enterGame = (gameId: string) => {
+    window.history.pushState({ screen: "game", gameId }, "");
+    setView({ screen: "game", gameId });
+  };
+
   const startGame = (gameId: string) => {
     if (!playerName) {
       setPendingGameId(gameId);
       return;
     }
-    setView({ screen: "game", gameId });
+    enterGame(gameId);
   };
 
   const handleNameSubmit = (name: string) => {
     setPlayerName(name);
     setPlayerNameState(name);
     if (pendingGameId) {
-      setView({ screen: "game", gameId: pendingGameId });
+      enterGame(pendingGameId);
       setPendingGameId(null);
     }
   };
@@ -71,8 +87,8 @@ function App() {
   };
 
   const exitGame = () => {
-    setRankingVersion((v) => v + 1);
-    setView({ screen: "home" });
+    // 뒤로가기와 동일한 경로를 타게 해서 history 상태와 view 상태가 항상 일치하도록 한다
+    window.history.back();
   };
 
   if (view.screen === "game" && playerName) {
