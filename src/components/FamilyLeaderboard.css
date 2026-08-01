@@ -16,12 +16,40 @@
   font-size: 14px;
 }
 
+.family-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.family-game-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.family-game-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+.family-empty-small {
+  font-size: 13px;
+  margin: 0;
+}
+
 .family-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 380px;
-  margin: 0 auto;
 }
 
 .family-row {

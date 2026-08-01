@@ -183,6 +183,14 @@
   color: var(--text-dim);
 }
 
+.rg-btn-back {
+  width: auto;
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
 .rg-ranking {
   margin-top: 16px;
   display: flex;

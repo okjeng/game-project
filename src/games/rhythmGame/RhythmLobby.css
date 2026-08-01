@@ -1,0 +1,249 @@
+.rl-lobby {
+  position: relative;
+  width: min(92vw, 400px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: radial-gradient(120% 100% at 50% 0%, #232030 0%, #16161a 70%);
+  padding: 34px 22px 26px;
+}
+
+.rl-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rl-star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.25;
+  animation: rl-twinkle ease-in-out infinite;
+}
+
+@keyframes rl-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.4);
+  }
+}
+
+.rl-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(38px);
+  opacity: 0.35;
+  animation: rl-drift 9s ease-in-out infinite;
+}
+
+.rl-glow-a {
+  width: 140px;
+  height: 140px;
+  left: -30px;
+  top: -20px;
+  background: var(--neon-violet);
+}
+
+.rl-glow-b {
+  width: 120px;
+  height: 120px;
+  right: -30px;
+  top: 40px;
+  background: var(--neon-cyan);
+  animation-delay: 2s;
+}
+
+.rl-glow-c {
+  width: 130px;
+  height: 130px;
+  left: 30%;
+  bottom: -50px;
+  background: var(--neon-coral);
+  animation-delay: 4s;
+}
+
+@keyframes rl-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(12px, -14px);
+  }
+}
+
+.rl-content {
+  position: relative;
+  text-align: center;
+}
+
+.rl-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--neon-cyan);
+}
+
+.rl-title {
+  margin: 4px 0 8px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  text-shadow: 0 0 24px rgba(51, 201, 220, 0.4);
+}
+
+.rl-mascot {
+  margin: 6px auto 2px;
+  width: 108px;
+  height: 108px;
+}
+
+.rl-mascot-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rl-mascot-body {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rl-mascot-bob 1.1s ease-in-out infinite;
+}
+
+.rl-mascot-arm {
+  transform-box: fill-box;
+  animation: rl-mascot-swing 1.1s ease-in-out infinite;
+}
+
+.rl-mascot-arm-l {
+  transform-origin: 30px 58px;
+}
+
+.rl-mascot-arm-r {
+  transform-origin: 90px 58px;
+  animation-delay: 0.55s;
+  animation-direction: alternate-reverse;
+}
+
+.rl-mascot-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rl-mascot-blink 3.6s ease-in-out infinite;
+}
+
+@keyframes rl-mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(2deg);
+  }
+}
+
+@keyframes rl-mascot-swing {
+  0%,
+  100% {
+    transform: rotate(-16deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+
+@keyframes rl-mascot-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+.rl-eq {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 22px;
+  margin: 10px 0 20px;
+}
+
+.rl-eq-bar {
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--neon-cyan), var(--neon-violet));
+  animation: rl-eq-bounce ease-in-out infinite;
+}
+
+@keyframes rl-eq-bounce {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 22px;
+  }
+}
+
+.rl-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rl-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+}
+
+.rl-menu-btn:hover {
+  border-color: var(--neon-cyan);
+}
+
+.rl-menu-btn-primary {
+  background: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+  color: #0a0a0b;
+  font-size: 16px;
+  box-shadow: 0 0 24px rgba(51, 201, 220, 0.45);
+}
+
+.rl-menu-icon {
+  font-size: 14px;
+}
+
+.rl-best {
+  margin: 18px 0 4px;
+  color: var(--neon-amber);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.rl-hint {
+  margin: 4px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}

@@ -14,14 +14,17 @@ import {
   scheduleBassPulses,
 } from "./sfx";
 import { fetchFamilyRanking, getFamilyRanking, getMyBestScore, submitScore, type RankingEntry } from "../../lib/storage";
+import RhythmLobby from "./RhythmLobby";
+import RhythmStub, { type StubKind } from "./RhythmStub";
 import "./RhythmGame.css";
 
-type Phase = "start" | "playing" | "finished";
+type Phase = "lobby" | "stub" | "start" | "playing" | "finished";
 
 let judgeTextSeq = 0;
 
 export default function RhythmGame({ playerName, onExit }: { playerName: string; onExit: () => void }) {
-  const [phase, setPhase] = useState<Phase>("start");
+  const [phase, setPhase] = useState<Phase>("lobby");
+  const [stubKind, setStubKind] = useState<StubKind>("song");
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
@@ -201,6 +204,11 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
 
   const isNewRecord = finalStats != null && finalStats.score > 0 && finalStats.score >= best;
 
+  const openStub = (kind: StubKind) => {
+    setStubKind(kind);
+    setPhase("stub");
+  };
+
   return (
     <div className="rg-page">
       <div className="rg-topbar container">
@@ -234,8 +242,24 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
           {countdownLabel && <div className="rg-countdown">{countdownLabel}</div>}
         </div>
 
+        {phase === "lobby" && (
+          <RhythmLobby
+            best={best}
+            onPlay={() => setPhase("start")}
+            onSongSelect={() => openStub("song")}
+            onCharacter={() => openStub("character")}
+            onCollection={() => openStub("collection")}
+            onSettings={() => openStub("settings")}
+          />
+        )}
+
+        {phase === "stub" && <RhythmStub kind={stubKind} onBack={() => setPhase("lobby")} />}
+
         {phase === "start" && (
           <div className="rg-panel">
+            <button className="rg-btn rg-btn-ghost rg-btn-back" onClick={() => setPhase("lobby")}>
+              ← 로비
+            </button>
             <p className="rg-panel-emoji">🎵</p>
             <h1 className="rg-panel-title">BEAT MATCH</h1>
             <p className="rg-panel-tagline">내려오는 노트를 박자에 맞춰 눌러보세요!</p>
@@ -292,7 +316,10 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
               <button className="rg-btn rg-btn-primary" onClick={startGame}>
                 다시 플레이
               </button>
-              <button className="rg-btn rg-btn-ghost" onClick={onExit}>
+              <button className="rg-btn rg-btn-ghost" onClick={() => openStub("song")}>
+                곡 선택
+              </button>
+              <button className="rg-btn rg-btn-ghost" onClick={() => setPhase("lobby")}>
                 메인으로
               </button>
             </div>
