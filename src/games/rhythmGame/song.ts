@@ -4,7 +4,7 @@ export interface NoteEvent {
   freq: number;
 }
 
-export const BPM = 120;
+export const BPM = 96;
 export const BEAT_SEC = 60 / BPM;
 
 // C major 펜타토닉 — 어떻게 섞어도 불협화음이 안 나서 절차적으로 만들어도 듣기 좋다

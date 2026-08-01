@@ -1,0 +1,11 @@
+.tr-touch-lanes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.tr-lives {
+  font-size: 13px;
+  letter-spacing: 1px;
+}

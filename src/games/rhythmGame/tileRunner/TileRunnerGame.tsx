@@ -1,59 +1,49 @@
 import { useEffect, useRef, useState } from "react";
-import { GAME_CONFIG, LANE_COLORS, LANE_KEYS } from "./config";
-import { createInitialState, hitLane, tick, type RhythmState } from "./engine";
+import { RUNNER_CONFIG } from "./config";
+import { createInitialState, setLane, tick, type Lane, type RunnerState } from "./engine";
 import { draw, type JudgeText } from "./draw";
-import { audioNow, isMuted, toggleMuted } from "../../lib/sound";
-import {
-  initRhythmAudio,
-  playCountdownBeep,
-  playFinishedSfx,
-  playGoodSfx,
-  playMissSfx,
-  playNewRecordSfx,
-  playPerfectSfx,
-  scheduleBassPulses,
-} from "./sfx";
-import { fetchFamilyRanking, getFamilyRanking, getMyBestScore, submitScore, type RankingEntry } from "../../lib/storage";
-import RhythmLobby from "./RhythmLobby";
-import RhythmStub, { type StubKind } from "./RhythmStub";
-import ModeSelect from "./ModeSelect";
-import TileRunnerGame from "./tileRunner/TileRunnerGame";
-import "./RhythmGame.css";
+import { RUNNER_BEAT_SEC } from "./track";
+import { audioNow, isMuted, toggleMuted } from "../../../lib/sound";
+import { initRhythmAudio, playCountdownBeep, playFinishedSfx, playMissSfx, playNewRecordSfx } from "../sfx";
+import { playRunnerHitSfx, scheduleRunnerBassPulses } from "./sfx";
+import { fetchFamilyRanking, getFamilyRanking, getMyBestScore, submitScore, type RankingEntry } from "../../../lib/storage";
+import "../RhythmGame.css";
+import "./TileRunnerGame.css";
 
-type Phase = "lobby" | "stub" | "modeSelect" | "start" | "playing" | "finished" | "runner";
+const SCORE_ID = "rhythm-tile-runner";
+type Phase = "start" | "playing" | "finished";
 
 let judgeTextSeq = 0;
 
-export default function RhythmGame({ playerName, onExit }: { playerName: string; onExit: () => void }) {
-  const [phase, setPhase] = useState<Phase>("lobby");
-  const [stubKind, setStubKind] = useState<StubKind>("song");
+export default function TileRunnerGame({ playerName, onExit }: { playerName: string; onExit: () => void }) {
+  const [phase, setPhase] = useState<Phase>("start");
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [lives, setLives] = useState<number>(RUNNER_CONFIG.lives);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
-  const [best, setBest] = useState(() => getMyBestScore("rhythm-game"));
-  const [ranking, setRanking] = useState<RankingEntry[]>(() => getFamilyRanking("rhythm-game"));
+  const [best, setBest] = useState(() => getMyBestScore(SCORE_ID));
+  const [ranking, setRanking] = useState<RankingEntry[]>(() => getFamilyRanking(SCORE_ID));
   const [showRanking, setShowRanking] = useState(false);
   const [muted, setMutedState] = useState(() => isMuted());
   const [finalStats, setFinalStats] = useState<{
     score: number;
-    perfect: number;
-    good: number;
+    hit: number;
     miss: number;
     maxCombo: number;
+    cleared: boolean;
   } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const stateRef = useRef<RhythmState | null>(null);
+  const stateRef = useRef<RunnerState | null>(null);
   const songStartRef = useRef(0);
   const scoreRef = useRef(0);
   const comboRef = useRef(0);
   const judgeTextsRef = useRef<JudgeText[]>([]);
-  const activeLaneRef = useRef<number | null>(null);
 
   const refreshRanking = () => {
-    fetchFamilyRanking("rhythm-game").then((server) => {
+    fetchFamilyRanking(SCORE_ID).then((server) => {
       setRanking(server);
-      setBest((prev) => Math.max(prev, getMyBestScore("rhythm-game")));
+      setBest((prev) => Math.max(prev, getMyBestScore(SCORE_ID)));
     });
   };
 
@@ -67,36 +57,9 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
     setMutedState(toggleMuted());
   };
 
-  const handleHit = (lane: number) => {
+  const moveTo = (lane: Lane) => {
     if (!stateRef.current || phase !== "playing") return;
-    const now = audioNow();
-    const { state: next, event } = hitLane(stateRef.current, lane, now);
-    stateRef.current = next;
-    activeLaneRef.current = lane;
-    window.setTimeout(() => {
-      if (activeLaneRef.current === lane) activeLaneRef.current = null;
-    }, 120);
-
-    if (event?.type === "hit") {
-      judgeTextsRef.current.push({
-        id: judgeTextSeq++,
-        lane,
-        text: event.judgment === "perfect" ? "PERFECT" : "GOOD",
-        color: event.judgment === "perfect" ? "#2ecc71" : "#f5b642",
-        life: 500,
-        maxLife: 500,
-      });
-      if (event.judgment === "perfect") playPerfectSfx(event.freq);
-      else playGoodSfx(event.freq);
-      if (next.score !== scoreRef.current) {
-        scoreRef.current = next.score;
-        setScore(next.score);
-      }
-      if (next.combo !== comboRef.current) {
-        comboRef.current = next.combo;
-        setCombo(next.combo);
-      }
-    }
+    stateRef.current = setLane(stateRef.current, lane);
   };
 
   useEffect(() => {
@@ -106,8 +69,8 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
     if (!canvas || !ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = GAME_CONFIG.worldWidth * dpr;
-    canvas.height = GAME_CONFIG.worldHeight * dpr;
+    canvas.width = RUNNER_CONFIG.worldWidth * dpr;
+    canvas.height = RUNNER_CONFIG.worldHeight * dpr;
     ctx.scale(dpr, dpr);
 
     let raf = 0;
@@ -117,8 +80,6 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
       if (stopped || !stateRef.current) return;
       const now = audioNow();
 
-      // countdownLabel(state)을 클로저에서 직접 읽지 않고 매 프레임 계산값을 그대로 반영한다
-      // — 이 루프는 phase가 바뀔 때만 재생성되므로, 이전 값을 읽으면 항상 처음 값(stale)만 보게 된다
       const remain = songStartRef.current - now;
       const nextLabel = remain > 1.4 ? "3" : remain > 0.7 ? "2" : remain > 0 ? "1" : null;
       setCountdownLabel(nextLabel);
@@ -127,32 +88,49 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
       stateRef.current = next;
 
       for (const ev of events) {
-        if (ev.type === "miss") {
+        if (ev.type === "hit") {
           judgeTextsRef.current.push({
             id: judgeTextSeq++,
-            lane: ev.lane,
+            text: "GREAT",
+            color: "#2ecc71",
+            life: 450,
+            maxLife: 450,
+          });
+          playRunnerHitSfx(ev.lane);
+          if (next.score !== scoreRef.current) {
+            scoreRef.current = next.score;
+            setScore(next.score);
+          }
+          if (next.combo !== comboRef.current) {
+            comboRef.current = next.combo;
+            setCombo(next.combo);
+          }
+        } else if (ev.type === "miss") {
+          judgeTextsRef.current.push({
+            id: judgeTextSeq++,
             text: "MISS",
             color: "#ff6b6b",
-            life: 500,
-            maxLife: 500,
+            life: 450,
+            maxLife: 450,
           });
           playMissSfx();
           comboRef.current = 0;
           setCombo(0);
-        } else if (ev.type === "finished") {
+          setLives(next.lives);
+        } else if (ev.type === "gameover" || ev.type === "cleared") {
           stopped = true;
           playFinishedSfx();
-          const isRecord = submitScore("rhythm-game", playerName, next.score);
+          const isRecord = submitScore(SCORE_ID, playerName, next.score);
           if (isRecord) {
             setBest(next.score);
             window.setTimeout(playNewRecordSfx, 550);
           }
           setFinalStats({
             score: next.score,
-            perfect: next.perfectCount,
-            good: next.goodCount,
+            hit: next.hitCount,
             miss: next.missCount,
             maxCombo: next.maxCombo,
+            cleared: ev.type === "cleared",
           });
           setPhase("finished");
           refreshRanking();
@@ -164,14 +142,16 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
         .map((t) => ({ ...t, life: t.life - 16 }))
         .filter((t) => t.life > 0);
 
-      draw(ctx, next, now, activeLaneRef.current, judgeTextsRef.current);
+      draw(ctx, next, now, RUNNER_BEAT_SEC, judgeTextsRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const idx = LANE_KEYS.indexOf(e.key.toLowerCase() as (typeof LANE_KEYS)[number]);
-      if (idx >= 0) handleHit(idx);
+      if (!stateRef.current) return;
+      const key = e.key.toLowerCase();
+      if (key === "arrowleft" || key === "a") moveTo(Math.max(0, stateRef.current.currentLane - 1) as Lane);
+      else if (key === "arrowright" || key === "d") moveTo(Math.min(2, stateRef.current.currentLane + 1) as Lane);
     };
     window.addEventListener("keydown", handleKeyDown);
 
@@ -185,7 +165,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
 
   const startGame = () => {
     initRhythmAudio();
-    const start = audioNow() + GAME_CONFIG.leadInSec;
+    const start = audioNow() + RUNNER_CONFIG.leadInSec;
     songStartRef.current = start;
     stateRef.current = createInitialState(start);
     scoreRef.current = 0;
@@ -193,10 +173,11 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
     judgeTextsRef.current = [];
     setScore(0);
     setCombo(0);
+    setLives(RUNNER_CONFIG.lives);
     setFinalStats(null);
-    scheduleBassPulses(start);
+    scheduleRunnerBassPulses(start);
 
-    const leadMs = GAME_CONFIG.leadInSec * 1000;
+    const leadMs = RUNNER_CONFIG.leadInSec * 1000;
     window.setTimeout(() => playCountdownBeep(false), Math.max(0, leadMs - 2000));
     window.setTimeout(() => playCountdownBeep(false), Math.max(0, leadMs - 1000));
     window.setTimeout(() => playCountdownBeep(true), Math.max(0, leadMs));
@@ -206,15 +187,6 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
 
   const isNewRecord = finalStats != null && finalStats.score > 0 && finalStats.score >= best;
 
-  const openStub = (kind: StubKind) => {
-    setStubKind(kind);
-    setPhase("stub");
-  };
-
-  if (phase === "runner") {
-    return <TileRunnerGame playerName={playerName} onExit={() => setPhase("lobby")} />;
-  }
-
   return (
     <div className="rg-page">
       <div className="rg-topbar container">
@@ -222,7 +194,12 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
           ← 나가기
         </button>
         <div className="rg-hud">
-          {phase === "playing" && <span className="rg-combo">COMBO {combo}</span>}
+          {phase === "playing" && (
+            <>
+              <span className="tr-lives">{"❤️".repeat(Math.max(0, lives))}</span>
+              <span className="rg-combo">COMBO {combo}</span>
+            </>
+          )}
           <button className="rg-mute-btn" onClick={handleMuteToggle} aria-label="소리 켜기/끄기">
             {muted ? "🔇" : "🔊"}
           </button>
@@ -239,44 +216,20 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
         <div className="rg-stage" style={{ display: phase === "playing" ? "block" : "none" }}>
           <canvas ref={canvasRef} className="rg-canvas" />
           {phase === "playing" && (
-            <div className="rg-touch-lanes">
-              {LANE_COLORS.map((_, i) => (
-                <button key={i} className="rg-touch-lane" onPointerDown={() => handleHit(i)} />
+            <div className="tr-touch-lanes">
+              {[0, 1, 2].map((i) => (
+                <button key={i} className="rg-touch-lane" onPointerDown={() => moveTo(i as Lane)} />
               ))}
             </div>
           )}
           {countdownLabel && <div className="rg-countdown">{countdownLabel}</div>}
         </div>
 
-        {phase === "lobby" && (
-          <RhythmLobby
-            best={best}
-            onPlay={() => setPhase("modeSelect")}
-            onSongSelect={() => openStub("song")}
-            onCharacter={() => openStub("character")}
-            onCollection={() => openStub("collection")}
-            onSettings={() => openStub("settings")}
-          />
-        )}
-
-        {phase === "stub" && <RhythmStub kind={stubKind} onBack={() => setPhase("lobby")} />}
-
-        {phase === "modeSelect" && (
-          <ModeSelect
-            onSelectNote={() => setPhase("start")}
-            onSelectRunner={() => setPhase("runner")}
-            onBack={() => setPhase("lobby")}
-          />
-        )}
-
         {phase === "start" && (
           <div className="rg-panel">
-            <button className="rg-btn rg-btn-ghost rg-btn-back" onClick={() => setPhase("modeSelect")}>
-              ← 모드 선택
-            </button>
-            <p className="rg-panel-emoji">🎵</p>
-            <h1 className="rg-panel-title">BEAT MATCH</h1>
-            <p className="rg-panel-tagline">내려오는 노트를 박자에 맞춰 눌러보세요!</p>
+            <p className="rg-panel-emoji">🏃</p>
+            <h1 className="rg-panel-title">TILE RUNNER</h1>
+            <p className="rg-panel-tagline">박자에 맞춰 타일 위로 이동하세요! 놓치면 하트가 줄어요.</p>
             <button className="rg-btn rg-btn-primary" onClick={startGame}>
               ▶ 게임 시작
             </button>
@@ -299,23 +252,19 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
                 )}
               </div>
             )}
-            <p className="rg-panel-hint">PC: D F J K &nbsp;·&nbsp; 모바일: 화면 4칸 탭</p>
+            <p className="rg-panel-hint">PC: ← → 방향키 &nbsp;·&nbsp; 모바일: 화면 3칸 탭</p>
           </div>
         )}
 
         {phase === "finished" && finalStats && (
           <div className="rg-panel">
             {isNewRecord && <p className="rg-record-badge">🎉 신기록!</p>}
-            <h1 className="rg-panel-title">SONG CLEAR!</h1>
+            <h1 className="rg-panel-title">{finalStats.cleared ? "CLEAR!" : "GAME OVER"}</h1>
             <p className="rg-final-score">{finalStats.score.toLocaleString()}</p>
             <div className="rg-final-stats">
               <div>
-                <span className="rg-final-stat-label">PERFECT</span>
-                <span className="rg-final-stat-value rg-perfect">{finalStats.perfect}</span>
-              </div>
-              <div>
-                <span className="rg-final-stat-label">GOOD</span>
-                <span className="rg-final-stat-value rg-good">{finalStats.good}</span>
+                <span className="rg-final-stat-label">HIT</span>
+                <span className="rg-final-stat-value rg-perfect">{finalStats.hit}</span>
               </div>
               <div>
                 <span className="rg-final-stat-label">MISS</span>
@@ -330,10 +279,7 @@ export default function RhythmGame({ playerName, onExit }: { playerName: string;
               <button className="rg-btn rg-btn-primary" onClick={startGame}>
                 다시 플레이
               </button>
-              <button className="rg-btn rg-btn-ghost" onClick={() => openStub("song")}>
-                곡 선택
-              </button>
-              <button className="rg-btn rg-btn-ghost" onClick={() => setPhase("lobby")}>
+              <button className="rg-btn rg-btn-ghost" onClick={onExit}>
                 메인으로
               </button>
             </div>
